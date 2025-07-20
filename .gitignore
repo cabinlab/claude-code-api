@@ -1,0 +1,129 @@
+# Claude Code
+.claude/
+CLAUDE.md
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# Build outputs
+dist/
+build/
+out/
+tmp/
+.next/
+.nuxt/
+.cache/
+
+# TypeScript
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# Testing
+coverage/
+.nyc_output/
+test-results/
+junit.xml
+*.lcov
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.template
+*.env
+secrets/
+
+# Certificates and keys
+certs/
+*.pem
+*.crt
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.truststore
+
+# Data and databases
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pnpm-debug.log*
+.npm/
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# IDEs and editors
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json.example
+.idea/
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.settings/
+*.swp
+*.swo
+*~
+.history/
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+*.tmp
+
+# Docker
+docker-compose.override.yml
+docker-compose.override.yaml
+
+# Package manager locks (include only one)
+# Uncomment the lock file your project doesn't use:
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# Misc
+.sass-cache/
+.parcel-cache/
+.turbo/
+.vercel
+.netlify

@@ -1,0 +1,38 @@
+services:
+  claude-api:
+    build: .
+    ports:
+      - "${PORT:-8000}:${PORT:-8000}"    # HTTP API
+      - "${HTTPS_PORT:-8443}:${HTTPS_PORT:-8443}"    # HTTPS Admin/Auth
+    environment:
+      # Admin password for token exchange
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme}
+      
+      # Your Claude OAuth token (required)
+      # Get from: https://claude.ai/settings/oauth
+      - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN}
+      
+      # Optional settings
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=${PORT:-8000}
+      - HTTPS_PORT=${HTTPS_PORT:-8443}
+    volumes:
+      # Persist API key mappings
+      - ./data:/app/data
+      
+      # Optional: Use custom certificates
+      # - ./certs:/app/certs
+      
+      # Development: Mount source for hot reload
+      # - ./src:/app/src:ro
+    restart: unless-stopped
+    
+  # Optional: Cloudflare Tunnel (for future production use)
+  # cloudflared:
+  #   image: cloudflare/cloudflared:latest
+  #   command: tunnel --no-autoupdate run
+  #   environment:
+  #     - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+  #   depends_on:
+  #     - claude-api
+  #   restart: unless-stopped

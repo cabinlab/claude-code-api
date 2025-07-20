@@ -10,7 +10,10 @@ An OpenAI-compatible API gateway for Claude Code with simple auth and web-based 
 - 🔐 **Secure Token Exchange**: Convert Claude OAuth tokens to API keys via HTTPS interface
 - 🎯 **Simple Management**: Web UI for creating and managing API keys
 - 🚀 **Streaming Support**: Real-time responses via Server-Sent Events
-- 📦 **Minimal Size**: Adds <10MB to base container
+- 📦 **Minimal Size**: Lightweight Express.js application
+- 🔒 **Session-Based Auth**: Secure admin access with HTTP-only cookies
+- 🎨 **Modern UI**: Beautiful dark-themed interface with DaisyUI
+- 🐳 **Docker Ready**: Pre-configured for containerized deployment
 
 ![API Key Management](docs/images/key-management.png)
 *API Key Management Dashboard*
@@ -190,22 +193,131 @@ src/
 2. **Rate Limiting**: Modify `security.ts` middleware
 3. **Custom Endpoints**: Add routes in `api.ts`
 
+## Usage Examples
+
+### Python
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="your-generated-api-key-here",
+    base_url="http://localhost:8000/v1"
+)
+
+response = client.chat.completions.create(
+    model="gpt-4",  # or "opus", "sonnet", "haiku"
+    messages=[{"role": "user", "content": "Hello!"}],
+    stream=True  # Optional: Enable streaming
+)
+
+for chunk in response:
+    print(chunk.choices[0].delta.content, end="")
+```
+
+### Node.js/JavaScript
+```javascript
+import OpenAI from 'openai';
+
+const openai = new OpenAI({
+  apiKey: 'your-generated-api-key-here',
+  baseURL: 'http://localhost:8000/v1',
+});
+
+const completion = await openai.chat.completions.create({
+  model: 'gpt-4',
+  messages: [{ role: 'user', content: 'Hello!' }],
+});
+
+console.log(completion.choices[0].message.content);
+```
+
+### Go
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    openai "github.com/sashabaranov/go-openai"
+)
+
+func main() {
+    config := openai.DefaultConfig("your-generated-api-key-here")
+    config.BaseURL = "http://localhost:8000/v1"
+    client := openai.NewClientWithConfig(config)
+    
+    resp, err := client.CreateChatCompletion(
+        context.Background(),
+        openai.ChatCompletionRequest{
+            Model: openai.GPT4,
+            Messages: []openai.ChatCompletionMessage{
+                {
+                    Role:    openai.ChatMessageRoleUser,
+                    Content: "Hello!",
+                },
+            },
+        },
+    )
+    
+    if err != nil {
+        panic(err)
+    }
+    
+    fmt.Println(resp.Choices[0].Message.Content)
+}
+```
+
+### Ruby
+```ruby
+require "openai"
+
+client = OpenAI::Client.new(
+  access_token: "your-generated-api-key-here",
+  uri_base: "http://localhost:8000/v1"
+)
+
+response = client.chat(
+  parameters: {
+    model: "gpt-4",
+    messages: [{ role: "user", content: "Hello!" }]
+  }
+)
+
+puts response.dig("choices", 0, "message", "content")
+```
+
+## Documentation
+
+- **[API Reference](API.md)** - Complete endpoint documentation
+- **[Architecture](ARCHITECTURE.md)** - System design and components
+- **[Development](DEVELOPMENT.md)** - Local development setup
+- **[Security](SECURITY.md)** - Security considerations
+
 ## Troubleshooting
 
 ### "Invalid OAuth token"
 - Ensure your token starts with `sk-ant-oat01-`
-- Check token hasn't expired
-- Verify `CLAUDE_CODE_OAUTH_TOKEN` is set correctly
+- Check token hasn't expired at https://claude.ai/settings/oauth
+- Generate a new token with `claude get-token`
+- Verify the token is properly saved in the admin interface
 
 ### "Connection refused" on HTTPS
 - Run `npm run generate-certs` to create certificates
-- Check port 8443 is not in use
+- Check port 8443 is not in use: `lsof -i :8443`
 - Ensure Docker has the certs volume mounted
+- Accept the self-signed certificate warning in your browser
 
 ### Streaming not working
-- Check your client supports SSE
+- Check your client supports Server-Sent Events (SSE)
 - Ensure no proxy is buffering responses
 - Add `X-Accel-Buffering: no` header for nginx
+- Verify streaming is enabled in your request (`"stream": true`)
+
+### API key not working
+- Ensure the key starts with `sk-` and is complete
+- Check the key exists in the admin dashboard
+- Verify the associated OAuth token is still valid
+- Look for rate limit errors (429 status code)
 
 ## License
 

@@ -225,10 +225,21 @@ export function createAdminRouter(keyManager: KeyManager, security: SecurityMidd
     .overflow-x-auto {
       border-radius: 0.5rem;
     }
-    /* Active token styling */
+    /* Active token styling - subtle approach */
     .token-active {
-      border: 2px solid var(--claude-green) !important;
-      box-shadow: 0 0 0 1px var(--claude-green);
+      background-color: rgba(125, 211, 160, 0.1) !important;
+      border: 1px solid rgba(125, 211, 160, 0.3) !important;
+      position: relative;
+    }
+    .token-active::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background-color: var(--claude-green);
+      border-radius: 1px;
     }
     .badge-success {
       background-color: rgba(125, 211, 160, 0.2) !important;

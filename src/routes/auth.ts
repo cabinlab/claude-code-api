@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { KeyManager } from '../services/keyManager';
 import { SecurityMiddleware } from '../middleware/security';
+import { claudeAuth } from '../services/claudeAuth';
 import * as crypto from 'crypto';
 
 export function createAuthRouter(keyManager: KeyManager, security: SecurityMiddleware): Router {
@@ -504,6 +505,7 @@ export function createAuthRouter(keyManager: KeyManager, security: SecurityMiddl
   // Serve token exchange page (requires session)
   router.get('/exchange', security.requireHttps, security.validateSession, async (req: Request, res: Response) => {
     const existingKeys = await keyManager.listKeys();
+    const activeTokenSuffix = await claudeAuth.getActiveToken();
     res.send(`
 <!DOCTYPE html>
 <html data-theme="dark">
@@ -853,9 +855,6 @@ export function createAuthRouter(keyManager: KeyManager, security: SecurityMiddl
             </label>
             <input type="text" id="oauthToken" 
                    class="input input-bordered font-mono" 
-                   style="border: 1px solid #F69D50 !important;"
-                   onfocus="this.style.setProperty('border', '1px solid #71AAE4', 'important')"
-                   onblur="this.style.setProperty('border', '1px solid #F69D50', 'important')"
                    placeholder="sk-ant-oat01-..." required>
             <label class="label">
               <span class="label-text-alt">
@@ -908,6 +907,45 @@ export function createAuthRouter(keyManager: KeyManager, security: SecurityMiddl
   </div>
   
   <script>
+    // Store the active token suffix for comparison
+    const activeTokenSuffix = ${activeTokenSuffix ? `'${activeTokenSuffix}'` : 'null'};
+    
+    // Check if the entered token is active
+    function checkTokenActive() {
+      const tokenInput = document.getElementById('oauthToken');
+      const token = tokenInput.value;
+      
+      if (activeTokenSuffix && token.endsWith(activeTokenSuffix)) {
+        // Token is active - show green border
+        tokenInput.style.setProperty('border', '2px solid var(--claude-green)', 'important');
+        tokenInput.style.setProperty('box-shadow', '0 0 0 1px var(--claude-green)', 'important');
+      } else {
+        // Token is not active - show orange border
+        tokenInput.style.setProperty('border', '1px solid #F69D50', 'important');
+        tokenInput.style.setProperty('box-shadow', 'none', 'important');
+      }
+    }
+    
+    // Add event listeners for token input
+    document.getElementById('oauthToken').addEventListener('input', checkTokenActive);
+    document.getElementById('oauthToken').addEventListener('paste', () => {
+      setTimeout(checkTokenActive, 10); // Small delay to ensure paste is processed
+    });
+    
+    // Override focus/blur handlers to respect active state
+    document.getElementById('oauthToken').onfocus = function() {
+      const token = this.value;
+      if (activeTokenSuffix && token.endsWith(activeTokenSuffix)) {
+        this.style.setProperty('border', '2px solid var(--claude-green)', 'important');
+        this.style.setProperty('box-shadow', '0 0 0 3px rgba(125, 211, 160, 0.1)', 'important');
+      } else {
+        this.style.setProperty('border', '1px solid #71AAE4', 'important');
+        this.style.setProperty('box-shadow', '0 0 0 3px rgba(113, 170, 228, 0.1)', 'important');
+      }
+    };
+    
+    document.getElementById('oauthToken').onblur = checkTokenActive;
+    
     document.getElementById('tokenForm').onsubmit = async (e) => {
       e.preventDefault();
       const btn = e.target.querySelector('button[type="submit"]');
@@ -1036,6 +1074,15 @@ export function createAuthRouter(keyManager: KeyManager, security: SecurityMiddl
     try {
       // Generate and store API key
       const apiKey = await keyManager.createKey(oauthToken, keyName);
+      
+      // Activate the OAuth token in Claude configuration
+      try {
+        await claudeAuth.activateToken(oauthToken);
+        console.log('OAuth token activated in Claude configuration');
+      } catch (activationError) {
+        // Log but don't fail the request - the API key is still valid
+        console.error('Warning: Failed to activate OAuth token in Claude:', activationError);
+      }
       
       res.json({
         apiKey,

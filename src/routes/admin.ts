@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { KeyManager } from '../services/keyManager';
 import { SecurityMiddleware } from '../middleware/security';
+import { claudeAuth } from '../services/claudeAuth';
 
 export function createAdminRouter(keyManager: KeyManager, security: SecurityMiddleware): Router {
   const router = Router();
@@ -8,10 +9,12 @@ export function createAdminRouter(keyManager: KeyManager, security: SecurityMidd
   // Admin interface (HTTPS and session required)
   router.get('/', security.requireHttps, security.validateSession, async (req: Request, res: Response) => {
     const keys = await keyManager.listKeys();
+    const activeTokenSuffix = await claudeAuth.getActiveToken();
     
     res.send(`
 <!DOCTYPE html>
 <html data-theme="dark">
+<!-- DEBUG: activeTokenSuffix = ${activeTokenSuffix} -->
 <head>
   <title>Claude Code API - Manage Keys</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -222,6 +225,18 @@ export function createAdminRouter(keyManager: KeyManager, security: SecurityMidd
     .overflow-x-auto {
       border-radius: 0.5rem;
     }
+    /* Active token styling */
+    .token-active {
+      border: 2px solid var(--claude-green) !important;
+      box-shadow: 0 0 0 1px var(--claude-green);
+    }
+    .badge-success {
+      background-color: rgba(125, 211, 160, 0.2) !important;
+      color: var(--claude-green) !important;
+      border: none;
+      font-size: 0.75rem;
+      padding: 0.125rem 0.5rem;
+    }
   </style>
 </head>
 <body class="min-h-screen bg-base-200">
@@ -285,11 +300,16 @@ export function createAdminRouter(keyManager: KeyManager, security: SecurityMidd
               </tr>
             </thead>
             <tbody id="keysTable">
-              ${keys.map(key => `
+              ${keys.map(key => {
+                const isActive = activeTokenSuffix && key.oauthTokenDisplay.endsWith(activeTokenSuffix);
+                return `
                 <tr>
-                  <td class="font-medium">${key.keyName}</td>
+                  <td class="font-medium">
+                    ${key.keyName}
+                    ${isActive ? '<span class="badge badge-success ml-2">Active</span>' : ''}
+                  </td>
                   <td>
-                    <code class="text-xs bg-base-200 px-2 py-1 rounded">
+                    <code class="text-xs bg-base-200 px-2 py-1 rounded ${isActive ? 'token-active' : ''}">
                       ${key.oauthTokenDisplay}
                     </code>
                   </td>
@@ -325,7 +345,7 @@ export function createAdminRouter(keyManager: KeyManager, security: SecurityMidd
                     </button>
                   </td>
                 </tr>
-              `).join('')}
+              `}).join('')}
             </tbody>
           </table>
           ${keys.length === 0 ? `
@@ -395,6 +415,29 @@ export function createAdminRouter(keyManager: KeyManager, security: SecurityMidd
 </body>
 </html>
     `);
+  });
+
+  // Debug endpoint to test claudeAuth
+  router.get('/debug/claude-auth', security.requireHttps, security.validateSession, async (req: Request, res: Response) => {
+    try {
+      const activeToken = await claudeAuth.getActiveToken();
+      const keys = await keyManager.listKeys();
+      
+      res.json({
+        activeTokenSuffix: activeToken,
+        activeTokenFound: !!activeToken,
+        keys: keys.map(k => ({
+          name: k.keyName,
+          tokenSuffix: k.oauthTokenDisplay.slice(-4),
+          isActive: activeToken && k.oauthTokenDisplay.endsWith(activeToken)
+        }))
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
+    }
   });
 
   // Delete API key (requires session)

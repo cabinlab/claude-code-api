@@ -17,48 +17,30 @@ export function createApiRouter(
       object: 'list',
       data: [
         {
-          id: 'gpt-4',
+          id: 'Opus 4',
           object: 'model',
-          created: 1687882411,
-          owned_by: 'openai',
-          permission: [],
-          root: 'gpt-4',
-          parent: null
-        },
-        {
-          id: 'gpt-3.5-turbo',
-          object: 'model',
-          created: 1677610602,
-          owned_by: 'openai',
-          permission: [],
-          root: 'gpt-3.5-turbo',
-          parent: null
-        },
-        {
-          id: 'sonnet',
-          object: 'model',
-          created: 1677610602,
+          created: 1731888000,
           owned_by: 'anthropic',
           permission: [],
-          root: 'claude-3-sonnet',
+          root: 'opus',
           parent: null
         },
         {
-          id: 'opus',
+          id: 'Sonnet 4',
           object: 'model',
-          created: 1677610602,
+          created: 1729468800,
           owned_by: 'anthropic',
           permission: [],
-          root: 'claude-3-opus',
+          root: 'sonnet',
           parent: null
         },
         {
-          id: 'haiku',
+          id: 'Haiku 3.5',
           object: 'model',
-          created: 1677610602,
+          created: 1729555200,
           owned_by: 'anthropic',
           permission: [],
-          root: 'claude-3-haiku',
+          root: 'claude-3-5-haiku-20241022',
           parent: null
         }
       ]

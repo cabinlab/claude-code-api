@@ -1,0 +1,66 @@
+services:
+  # Claude Code API service
+  claude-api:
+    build: .
+    ports:
+      - "${API_PORT:-8100}:8000"           # HTTP API
+      - "${API_HTTPS_PORT:-8543}:8443"     # HTTPS Admin/Auth
+    environment:
+      # Admin password for token exchange
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme}
+      
+      # Your Claude OAuth token (required)
+      # Get from: https://claude.ai/settings/oauth
+      - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN}
+      
+      # Optional settings
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=8000
+      - HTTPS_PORT=8443
+    volumes:
+      # Persist API key mappings
+      - ./data:/app/data
+      
+      # Docker volume for persistent Claude CLI authentication
+      - claude-auth:/home/claude/.claude
+      
+      # Optional: Use custom certificates
+      # - ./certs:/app/certs
+      
+      # Development: Mount source for hot reload
+      # - ./src:/app/src:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8000/v1/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+    
+  # OpenWebUI for testing the API
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: claude-api-openwebui-test
+    ports:
+      - "${OPEN_WEBUI_PORT:-8080}:8080"
+    volumes:
+      - open-webui:/app/backend/data
+    environment:
+      # Use Claude Code API as the OpenAI API backend
+      - OPENAI_API_KEY=${TEST_API_KEY}
+      - OPENAI_API_BASE_URL=${OPENAI_API_BASE_URL:-http://claude-api:8000/v1}
+      # Disable Ollama integration
+      - ENABLE_OLLAMA_API=false
+      - OLLAMA_BASE_URL=""
+      # Set a secure session key
+      - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY:-test-secret-key-change-in-production}
+      # Enable OpenAI API models
+      - ENABLE_OPENAI_API=true
+    depends_on:
+      claude-api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  claude-auth:
+  open-webui:

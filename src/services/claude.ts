@@ -73,13 +73,20 @@ export class ClaudeService {
    * Extract model name from OpenAI format
    */
   private getClaudeModel(model: string): string {
-    // Map common OpenAI models to Claude models
+    // Map model IDs to Claude CLI model strings
     const modelMap: Record<string, string> = {
+      // Friendly names from our API
+      'Opus 4': 'opus',
+      'Sonnet 4': 'sonnet',
+      'Haiku 3.5': 'claude-3-5-haiku-20241022',
+      // Direct model names
+      'opus': 'opus',
+      'sonnet': 'sonnet',
+      'claude-3-5-haiku-20241022': 'claude-3-5-haiku-20241022',
+      // Legacy/compatibility mappings
       'gpt-4': 'opus',
       'gpt-4-turbo': 'sonnet',
       'gpt-3.5-turbo': 'claude-3-5-haiku-20241022',
-      'opus': 'opus',
-      'sonnet': 'sonnet',
       'haiku': 'claude-3-5-haiku-20241022'
     };
 

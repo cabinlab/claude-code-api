@@ -73,6 +73,14 @@ export class ClaudeAuthService {
    */
   async activateToken(oauthToken: string): Promise<void> {
     try {
+      // Check if there's already an active token
+      const currentActiveToken = await this.getActiveToken();
+      if (currentActiveToken) {
+        console.log('OAuth token already active, skipping activation');
+        return;
+      }
+      
+      // Only activate if no token is currently active
       // Ensure .claude directory exists
       await this.ensureClaudeDirectories();
       

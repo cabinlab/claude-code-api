@@ -406,10 +406,10 @@ export function createAdminRouter(keyManager: KeyManager, security: SecurityMidd
           window.location.reload();
         } else {
           const error = await response.json();
-          alert('Failed to clear active token: ' + error.error);
+          alert(\`Failed to clear active token: \${error.error}\`);
         }
       } catch (error) {
-        alert('Failed to clear active token: ' + error.message);
+        alert(\`Failed to clear active token: \${error.message}\`);
       }
     }
 

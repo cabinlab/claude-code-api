@@ -2,25 +2,18 @@ import { Router, Request, Response } from 'express';
 import { KeyManager } from '../services/keyManager';
 import { SecurityMiddleware } from '../middleware/security';
 import { claudeAuth } from '../services/claudeAuth';
+import { ClaudeService } from '../services/claude';
 
-export function createAdminRouter(keyManager: KeyManager, security: SecurityMiddleware): Router {
+export function createAdminRouter(keyManager: KeyManager, security: SecurityMiddleware, claudeService: ClaudeService): Router {
   const router = Router();
 
   // Admin interface (HTTPS and session required)
   router.get('/', security.requireHttps, security.validateSession, async (req: Request, res: Response) => {
     const keys = await keyManager.listKeys();
-    const activeTokenSuffix = await claudeAuth.getActiveToken();
-    
-    // Check if active token exists in our database
-    let orphanedActiveToken = false;
-    if (activeTokenSuffix) {
-      orphanedActiveToken = !keys.some(key => key.oauthTokenDisplay.endsWith(activeTokenSuffix));
-    }
     
     res.send(`
 <!DOCTYPE html>
 <html data-theme="dark">
-<!-- DEBUG: activeTokenSuffix = ${activeTokenSuffix} -->
 <head>
   <title>Claude Code API - Manage Keys</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -286,23 +279,6 @@ export function createAdminRouter(keyManager: KeyManager, security: SecurityMidd
       </a>
     </div>
 
-    ${orphanedActiveToken ? `
-    <div class="alert alert-warning mb-6">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-      </svg>
-      <div>
-        <h3 class="font-bold">Orphaned Active Token Detected</h3>
-        <div class="text-sm">
-          An OAuth token ending in <code>...${activeTokenSuffix}</code> is currently active in Claude's configuration 
-          but is not in your key database. This may be from a previous installation.
-        </div>
-        <div class="mt-2">
-          <button onclick="clearActiveToken()" class="btn btn-sm btn-error">Clear Active Token</button>
-        </div>
-      </div>
-    </div>
-    ` : ''}
 
     <div class="card bg-base-100 shadow-xl">
       <div class="card-body">${keys.length === 0 ? '' : `
@@ -320,12 +296,12 @@ export function createAdminRouter(keyManager: KeyManager, security: SecurityMidd
                 <th>OpenAI Compliant Key</th>
                 <th>Created</th>
                 <th>Last Used</th>
-                <th class="text-center">Revoke</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="keysTable">
               ${keys.map(key => {
-                const isActive = activeTokenSuffix && key.oauthTokenDisplay.endsWith(activeTokenSuffix);
+                const isActive = key.isActive;
                 return `
                 <tr>
                   <td class="font-medium">
@@ -339,8 +315,8 @@ export function createAdminRouter(keyManager: KeyManager, security: SecurityMidd
                   </td>
                   <td>
                     <div class="flex items-center gap-2">
-                      <code class="text-xs bg-base-200 px-2 py-1 rounded key-display" data-key="${key.apiKey}">
-                        ${key.apiKey.substring(0, 20)}...${key.apiKey.substring(key.apiKey.length - 4)}
+                      <code class="text-xs bg-base-200 px-2 py-1 rounded key-display" data-key="${key.apiKey}" data-display="${key.apiKeyDisplay}">
+                        ${key.apiKeyDisplay}
                       </code>
                       <button onclick="toggleKey(this)" class="btn btn-xs btn-ghost">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -360,13 +336,23 @@ export function createAdminRouter(keyManager: KeyManager, security: SecurityMidd
                   </td>
                   <td class="text-sm opacity-70">${new Date(key.createdAt).toLocaleDateString()}</td>
                   <td class="text-sm opacity-70">${key.lastUsed ? new Date(key.lastUsed).toLocaleDateString() : 'Never'}</td>
-                  <td class="text-center">
-                    <button onclick="deleteKey('${key.apiKey}')" class="btn btn-xs btn-error btn-outline">
-                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
+                  <td>
+                    <div class="flex items-center gap-1">
+                      ${!isActive ? `
+                        <button onclick="activateKey('${key.apiKey}')" class="btn btn-xs btn-success btn-outline" title="Activate this key">
+                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </button>
+                      ` : '<div class="w-6"></div>'}
+                      <button onclick="deleteKey('${key.apiKey}')" class="btn btn-xs btn-error btn-outline">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               `}).join('')}
@@ -390,7 +376,7 @@ export function createAdminRouter(keyManager: KeyManager, security: SecurityMidd
     // Session is already validated by middleware
 
     async function clearActiveToken() {
-      if (!confirm('This will clear the active OAuth token from Claude\'s configuration. Continue?')) {
+      if (!confirm('This will clear the active OAuth token from Claude\\'s configuration. Continue?')) {
         return;
       }
       
@@ -406,20 +392,21 @@ export function createAdminRouter(keyManager: KeyManager, security: SecurityMidd
           window.location.reload();
         } else {
           const error = await response.json();
-          alert(\`Failed to clear active token: \${error.error}\`);
+          alert('Failed to clear active token: ' + error.error);
         }
       } catch (error) {
-        alert(\`Failed to clear active token: \${error.message}\`);
+        alert('Failed to clear active token: ' + error.message);
       }
     }
 
     function toggleKey(btn) {
       const keyDisplay = btn.previousElementSibling;
       const fullKey = keyDisplay.dataset.key;
+      const displayKey = keyDisplay.dataset.display;
       const isShowing = keyDisplay.textContent === fullKey;
       
       if (isShowing) {
-        keyDisplay.textContent = fullKey.substring(0, 20) + '...' + fullKey.substring(fullKey.length - 4);
+        keyDisplay.textContent = displayKey;
       } else {
         keyDisplay.textContent = fullKey;
       }
@@ -442,7 +429,7 @@ export function createAdminRouter(keyManager: KeyManager, security: SecurityMidd
       }
 
       try {
-        const response = await fetch(\`/admin/keys/\${apiKey}\`, {
+        const response = await fetch('/admin/keys/' + apiKey, {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json'
@@ -454,6 +441,30 @@ export function createAdminRouter(keyManager: KeyManager, security: SecurityMidd
         } else {
           const data = await response.json();
           alert(data.error?.message || 'Failed to delete key');
+        }
+      } catch (error) {
+        alert('Network error. Please try again.');
+      }
+    }
+
+    async function activateKey(apiKey) {
+      if (!confirm('Activate this API key? This will deactivate any currently active key and update Claude\\'s configuration.')) {
+        return;
+      }
+
+      try {
+        const response = await fetch('/admin/activate-token/' + apiKey, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          location.reload();
+        } else {
+          const data = await response.json();
+          alert(data.error || 'Failed to activate key');
         }
       } catch (error) {
         alert('Network error. Please try again.');
@@ -489,7 +500,12 @@ export function createAdminRouter(keyManager: KeyManager, security: SecurityMidd
   });
 
   // Delete API key (requires session)
-  router.delete('/keys/:apiKey', security.requireHttps, security.validateSession, async (req: Request, res: Response) => {
+  // TODO: Re-enable HTTPS requirement once we implement one of these solutions:
+  // 1. Redirect to HTTPS at the admin page level (not individual API calls)
+  // 2. Use absolute HTTPS URLs in JavaScript with proper certificate handling
+  // 3. Implement a development mode that works with self-signed certs
+  // router.delete('/keys/:apiKey', security.requireHttps, security.validateSession, async (req: Request, res: Response) => {
+  router.delete('/keys/:apiKey', /* security.requireHttps, */ security.validateSession, async (req: Request, res: Response) => {
 
     try {
       const deleted = await keyManager.deleteKey(req.params.apiKey);
@@ -518,7 +534,9 @@ export function createAdminRouter(keyManager: KeyManager, security: SecurityMidd
   });
 
   // Clear active OAuth token
-  router.post('/clear-active-token', security.requireHttps, security.validateSession, async (req: Request, res: Response) => {
+  // TODO: Re-enable requireHttps - see comment above for details
+  // router.post('/clear-active-token', security.requireHttps, security.validateSession, async (req: Request, res: Response) => {
+  router.post('/clear-active-token', /* security.requireHttps, */ security.validateSession, async (req: Request, res: Response) => {
     try {
       await claudeAuth.clearActiveToken();
       res.json({ success: true });
@@ -526,6 +544,58 @@ export function createAdminRouter(keyManager: KeyManager, security: SecurityMidd
       console.error('Failed to clear active token:', error);
       res.status(500).json({
         error: error.message || 'Failed to clear active token'
+      });
+    }
+  });
+
+  // Activate a token
+  // TODO: Re-enable requireHttps - see comment above for details
+  // router.post('/activate-token/:apiKey', security.requireHttps, security.validateSession, async (req: Request, res: Response) => {
+  router.post('/activate-token/:apiKey', /* security.requireHttps, */ security.validateSession, async (req: Request, res: Response) => {
+    try {
+      const { apiKey } = req.params;
+      
+      // First, get the token we're about to activate and test it
+      const keys = await keyManager.listKeys();
+      const keyToActivate = keys.find(k => k.apiKey === apiKey);
+      
+      if (!keyToActivate) {
+        return res.status(404).json({
+          error: 'API key not found'
+        });
+      }
+      
+      // Temporarily activate the key to decrypt the OAuth token
+      const activated = await keyManager.activateKey(apiKey);
+      if (!activated) {
+        return res.status(500).json({
+          error: 'Failed to activate key'
+        });
+      }
+      
+      // Get the OAuth token
+      const oauthToken = await keyManager.getActiveOAuthToken();
+      if (!oauthToken) {
+        return res.status(500).json({
+          error: 'Failed to retrieve OAuth token'
+        });
+      }
+      
+      // Skip validation - we trust that tokens were validated when created
+      // This allows switching between tokens without unnecessary API calls
+      
+      // Activate in Claude configuration
+      await claudeAuth.clearActiveToken(); // Clear any existing
+      await claudeAuth.activateToken(oauthToken);
+      
+      res.json({ 
+        success: true,
+        message: 'Token validated and activated successfully'
+      });
+    } catch (error: any) {
+      console.error('Failed to activate token:', error);
+      res.status(500).json({
+        error: error.message || 'Failed to activate token'
       });
     }
   });

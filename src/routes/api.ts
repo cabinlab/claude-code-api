@@ -1,10 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { ClaudeService, ChatCompletionRequest } from '../services/claude';
 import { SecurityMiddleware } from '../middleware/security';
+import { KeyManager } from '../services/keyManager';
 
 export function createApiRouter(
   claudeService: ClaudeService, 
-  security: SecurityMiddleware
+  security: SecurityMiddleware,
+  keyManager: KeyManager
 ): Router {
   const router = Router();
 
@@ -80,6 +82,12 @@ export function createApiRouter(
           
           // Send done signal
           res.write('data: [DONE]\n\n');
+          
+          // Update last used after successful streaming response
+          if (req.apiKeyData?.apiKey) {
+            await keyManager.updateLastUsed(req.apiKeyData.apiKey);
+          }
+          
           res.end();
         } catch (error) {
           // Send error in SSE format
@@ -96,6 +104,12 @@ export function createApiRouter(
       } else {
         // Non-streaming response
         const completion = await claudeService.completions(request, oauthToken);
+        
+        // Update last used after successful response
+        if (req.apiKeyData?.apiKey) {
+          await keyManager.updateLastUsed(req.apiKeyData.apiKey);
+        }
+        
         res.json(completion);
       }
     } catch (error) {

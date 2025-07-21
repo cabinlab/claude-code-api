@@ -9,6 +9,7 @@ declare global {
       apiKeyData?: {
         oauthToken: string;
         keyName: string;
+        apiKey: string;
       };
     }
   }
@@ -112,7 +113,8 @@ export class SecurityMiddleware {
       // Attach key data to request for use in routes
       req.apiKeyData = {
         oauthToken: keyData.oauthToken,
-        keyName: keyData.keyName
+        keyName: keyData.keyName,
+        apiKey: apiKey  // Store the API key for later use
       };
 
       next();

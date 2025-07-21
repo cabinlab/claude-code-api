@@ -1,0 +1,20 @@
+# Docker ignore file
+node_modules
+npm-debug.log
+.git
+.env
+data
+certs
+*.log
+.DS_Store
+.vscode
+.idea
+coverage
+.nyc_output
+dist
+build
+*.test.js
+*.spec.js
+debug-docker.sh
+test-*.sh
+test-*.js

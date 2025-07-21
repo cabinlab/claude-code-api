@@ -2,9 +2,10 @@ import { Router, Request, Response } from 'express';
 import { KeyManager } from '../services/keyManager';
 import { SecurityMiddleware } from '../middleware/security';
 import { claudeAuth } from '../services/claudeAuth';
+import { ClaudeService } from '../services/claude';
 import * as crypto from 'crypto';
 
-export function createAuthRouter(keyManager: KeyManager, security: SecurityMiddleware): Router {
+export function createAuthRouter(keyManager: KeyManager, security: SecurityMiddleware, claudeService: ClaudeService): Router {
   const router = Router();
 
   // Serve the login page (HTTPS required)
@@ -1072,16 +1073,37 @@ export function createAuthRouter(keyManager: KeyManager, security: SecurityMiddl
     }
 
     try {
-      // Generate and store API key
-      const apiKey = await keyManager.createKey(oauthToken, keyName);
+      // Check if we should make this token active
+      const currentActiveToken = await claudeAuth.getActiveToken();
+      const shouldActivate = !currentActiveToken; // Only activate if no token is currently active
       
-      // Activate the OAuth token in Claude configuration
-      try {
-        await claudeAuth.activateToken(oauthToken);
-        console.log('OAuth token activated in Claude configuration');
-      } catch (activationError) {
-        // Log but don't fail the request - the API key is still valid
-        console.error('Warning: Failed to activate OAuth token in Claude:', activationError);
+      // Only validate the token if we're going to activate it
+      if (shouldActivate) {
+        const validation = await claudeService.validateToken(oauthToken);
+        
+        if (!validation.valid) {
+          return res.status(400).json({
+            error: {
+              message: `OAuth token validation failed: ${validation.error || 'Token is invalid or expired'}`,
+              type: 'invalid_request_error',
+              code: 'invalid_oauth_token'
+            }
+          });
+        }
+      }
+      
+      // Generate and store API key
+      const apiKey = await keyManager.createKey(oauthToken, keyName, shouldActivate);
+      
+      // If we're making it active, also activate in Claude configuration
+      if (shouldActivate) {
+        try {
+          await claudeAuth.activateToken(oauthToken);
+          console.log('OAuth token activated in Claude configuration');
+        } catch (activationError) {
+          // Log but don't fail the request - the API key is still valid
+          console.error('Warning: Failed to activate OAuth token in Claude:', activationError);
+        }
       }
       
       res.json({

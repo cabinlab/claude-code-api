@@ -25,6 +25,7 @@ const ADMIN_PASSWORD_HASH = crypto.createHash('sha256').update(ADMIN_PASSWORD).d
 async function startServer() {
   // Initialize services
   const keyManager = new KeyManager();
+  keyManager.setAdminPasswordHash(ADMIN_PASSWORD_HASH);
   await keyManager.initialize();
   
   const claudeService = new ClaudeService();
@@ -53,9 +54,9 @@ async function startServer() {
   });
 
   // Routes
-  app.use('/auth', createAuthRouter(keyManager, security));
-  app.use('/admin', createAdminRouter(keyManager, security));
-  app.use('/v1', createApiRouter(claudeService, security));
+  app.use('/auth', createAuthRouter(keyManager, security, claudeService));
+  app.use('/admin', createAdminRouter(keyManager, security, claudeService));
+  app.use('/v1', createApiRouter(claudeService, security, keyManager));
 
   // Root redirect
   app.get('/', (req, res) => {

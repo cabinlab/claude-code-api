@@ -20,6 +20,9 @@ services:
       # Persist API key mappings
       - ./data:/app/data
       
+      # Docker volume for persistent Claude CLI authentication
+      - claude-auth:/home/claude/.claude
+      
       # Optional: Use custom certificates
       # - ./certs:/app/certs
       
@@ -36,3 +39,6 @@ services:
   #   depends_on:
   #     - claude-api
   #   restart: unless-stopped
+
+volumes:
+  claude-auth:

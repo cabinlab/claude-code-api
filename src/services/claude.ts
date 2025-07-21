@@ -50,6 +50,31 @@ export interface ChatCompletionChunk {
 
 export class ClaudeService {
   /**
+   * Validate an OAuth token by making a simple test request
+   */
+  async validateToken(oauthToken: string): Promise<{ valid: boolean; error?: string }> {
+    try {
+      // Make a minimal request to test the token
+      const request: ChatCompletionRequest = {
+        model: 'claude-3-5-haiku-20241022',
+        messages: [{ role: 'user', content: 'Hi' }],
+        max_tokens: 1,
+        stream: false
+      };
+      
+      await this.completions(request, oauthToken);
+      return { valid: true };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Token validation failed:', errorMessage);
+      return { 
+        valid: false, 
+        error: errorMessage 
+      };
+    }
+  }
+
+  /**
    * Convert OpenAI messages to Claude prompt format
    */
   private formatMessages(messages: OpenAIMessage[]): string {

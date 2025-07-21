@@ -208,6 +208,25 @@ export class ClaudeAuthService {
     
     return token.endsWith(activeTokenSuffix);
   }
+
+  /**
+   * Clear the active OAuth token from Claude's configuration
+   */
+  async clearActiveToken(): Promise<void> {
+    try {
+      // Remove the credentials file
+      await fs.unlink(this.credentialsPath);
+      console.log('Active OAuth token cleared successfully');
+    } catch (error: any) {
+      if (error.code === 'ENOENT') {
+        // File doesn't exist, which is fine
+        console.log('No active OAuth token to clear');
+      } else {
+        console.error('Failed to clear active OAuth token:', error);
+        throw new Error('Failed to clear active OAuth token');
+      }
+    }
+  }
 }
 
 // Export singleton instance

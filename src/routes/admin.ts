@@ -11,6 +11,12 @@ export function createAdminRouter(keyManager: KeyManager, security: SecurityMidd
     const keys = await keyManager.listKeys();
     const activeTokenSuffix = await claudeAuth.getActiveToken();
     
+    // Check if active token exists in our database
+    let orphanedActiveToken = false;
+    if (activeTokenSuffix) {
+      orphanedActiveToken = !keys.some(key => key.oauthTokenDisplay.endsWith(activeTokenSuffix));
+    }
+    
     res.send(`
 <!DOCTYPE html>
 <html data-theme="dark">
@@ -280,6 +286,24 @@ export function createAdminRouter(keyManager: KeyManager, security: SecurityMidd
       </a>
     </div>
 
+    ${orphanedActiveToken ? `
+    <div class="alert alert-warning mb-6">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      </svg>
+      <div>
+        <h3 class="font-bold">Orphaned Active Token Detected</h3>
+        <div class="text-sm">
+          An OAuth token ending in <code>...${activeTokenSuffix}</code> is currently active in Claude's configuration 
+          but is not in your key database. This may be from a previous installation.
+        </div>
+        <div class="mt-2">
+          <button onclick="clearActiveToken()" class="btn btn-sm btn-error">Clear Active Token</button>
+        </div>
+      </div>
+    </div>
+    ` : ''}
+
     <div class="card bg-base-100 shadow-xl">
       <div class="card-body">${keys.length === 0 ? '' : `
         <div class="flex items-center justify-between mb-4">
@@ -364,6 +388,30 @@ export function createAdminRouter(keyManager: KeyManager, security: SecurityMidd
 
   <script>
     // Session is already validated by middleware
+
+    async function clearActiveToken() {
+      if (!confirm('This will clear the active OAuth token from Claude\'s configuration. Continue?')) {
+        return;
+      }
+      
+      try {
+        const response = await fetch('/admin/clear-active-token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          window.location.reload();
+        } else {
+          const error = await response.json();
+          alert('Failed to clear active token: ' + error.error);
+        }
+      } catch (error) {
+        alert('Failed to clear active token: ' + error.message);
+      }
+    }
 
     function toggleKey(btn) {
       const keyDisplay = btn.previousElementSibling;
@@ -465,6 +513,19 @@ export function createAdminRouter(keyManager: KeyManager, security: SecurityMidd
           type: 'api_error',
           code: 'deletion_failed'
         }
+      });
+    }
+  });
+
+  // Clear active OAuth token
+  router.post('/clear-active-token', security.requireHttps, security.validateSession, async (req: Request, res: Response) => {
+    try {
+      await claudeAuth.clearActiveToken();
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Failed to clear active token:', error);
+      res.status(500).json({
+        error: error.message || 'Failed to clear active token'
       });
     }
   });

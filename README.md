@@ -47,7 +47,7 @@ An OpenAI-compatible API gateway for Claude Code with simple auth and web-based 
 5. Generate an API key:
    - Visit https://localhost:8443
    - Enter admin password
-   - Paste your Claude OAuth token (get with `claude --set-token`)
+   - Paste your Claude OAuth token (get with `claude get-token`)
    - Copy the generated API key
 
 ### Local Development
